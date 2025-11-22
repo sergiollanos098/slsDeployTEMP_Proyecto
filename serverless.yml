@@ -30,6 +30,15 @@ functions:
           method: get
           cors: true
 
+  loginCustomer:
+    handler: handlers/loginCustomer.lambda_handler
+    events:
+      - http:
+          path: login/{customerId}
+          method: get
+          cors: true
+
+
   # ------------------------ ORDERS SERVICE -----------------------------
 
   createOrder:
