@@ -1,0 +1,143 @@
+service: kfc-order-system
+frameworkVersion: "3"
+
+org: sllanos099
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  stage: dev
+  iam:
+    role: arn:aws:iam::387765507107:role/LabRole
+
+functions:
+
+  # ------------------------ CUSTOMERS SERVICE --------------------------
+
+  createCustomer:
+    handler: handlers/createCustomer.lambda_handler
+    events:
+      - http:
+          path: customers
+          method: post
+          cors: true
+
+  getCustomer:
+    handler: handlers/getCustomer.lambda_handler
+    events:
+      - http:
+          path: customers/{customerId}
+          method: get
+          cors: true
+
+  # ------------------------ ORDERS SERVICE -----------------------------
+
+  createOrder:
+    handler: handlers/createOrder.lambda_handler
+    events:
+      - http:
+          path: orders
+          method: post
+          cors: true
+
+  getOrder:
+    handler: handlers/getOrder.lambda_handler
+    events:
+      - http:
+          path: orders/{orderId}
+          method: get
+          cors: true
+
+  # ------------------------ WORKFLOW LAMBDAS ---------------------------
+
+  cookOrder:
+    handler: handlers/cookOrder.lambda_handler
+    events:
+      - eventBridge:
+          pattern:
+            detail-type:
+              - order.created
+
+  packageOrder:
+    handler: handlers/packageOrder.lambda_handler
+    events:
+      - eventBridge:
+          pattern:
+            detail-type:
+              - order.cooking.started
+
+  deliverOrder:
+    handler: handlers/deliverOrder.lambda_handler
+    events:
+      - eventBridge:
+          pattern:
+            detail-type:
+              - order.packaging.started
+
+  completeOrder:
+    handler: handlers/completeOrder.lambda_handler
+    events:
+      - eventBridge:
+          pattern:
+            detail-type:
+              - order.delivery.started
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+
+resources:
+  Resources:
+
+    # -------------------------- DYNAMODB TABLES ------------------------
+
+    CustomersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: CustomersTable
+        AttributeDefinitions:
+          - AttributeName: tenantId
+            AttributeType: S
+          - AttributeName: customerId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: tenantId
+            KeyType: HASH
+          - AttributeName: customerId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    OrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: OrdersTable
+        AttributeDefinitions:
+          - AttributeName: tenantId
+            AttributeType: S
+          - AttributeName: orderId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: tenantId
+            KeyType: HASH
+          - AttributeName: orderId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+    WorkflowEventsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: WorkflowEventsTable
+        AttributeDefinitions:
+          - AttributeName: tenantId
+            AttributeType: S
+          - AttributeName: orderId#timestamp
+            AttributeType: S
+        KeySchema:
+          - AttributeName: tenantId
+            KeyType: HASH
+          - AttributeName: orderId#timestamp
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
